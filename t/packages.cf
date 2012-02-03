@@ -1,7 +1,8 @@
 bundle agent packages {
 vars:
   any::
-    "pack2" slist => {
+    "pack2"
+      slist => {
       "rcs",
       "subversion",
       "createrepo",
@@ -25,7 +26,8 @@ files:
   "/etc/yum.repos.d/local.repo"
     comment      => "Add $(this.promiser) repo config",
     create => "true",
-    perms => mog("644", "root", "root"),
+    perms =>
+      mog("644", "root", "root"),
     edit_line    => el_repos,
     classes => result_classes,
     handle => "repos_files";

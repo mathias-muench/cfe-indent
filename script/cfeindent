@@ -76,6 +76,10 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
     if ( $s == $s_promise ) {
         if (/=>/) {
             s/^\s*/      /;
+            unless (/[,;]\s$/) {
+              chomp;
+              $_ .= <>;
+            }
             my @words = split(/\W+/);
             if ( $words[1] eq "comment" ) {
                 $comment = $_;
