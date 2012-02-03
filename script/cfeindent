@@ -1,0 +1,152 @@
+#! /usr/bin/perl -si.bak
+use strict;
+use warnings;
+
+our $VERSION = '0.01';
+
+use vars qw($H $R $C);
+my %needsHandle  = ( "files" => $H, "commands" => $H );
+my %needsReport  = ( "files" => $R, "commands" => $R );
+my %needsClasses = ( "files" => $C, "commands" => $C );
+
+my $bundle;
+my $promise_type;
+my $promise;
+my $comment;
+my $classes;
+my $handle;
+my $reports;
+
+# states in finite state machine
+my $s_init         = 1;
+my $s_bundle       = 2;
+my $s_promise_type = 3;
+my $s_promise      = 5;
+my $s_body         = 6;
+
+for ( my $s = $s_init ; <> ; print ) {
+    if (/^\s*#/) {
+s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent/;
+        $s = $s;
+        next;
+    }
+    if ( $s == $s_init and /^\s*bundle/ ) {
+        s/^\s*//;
+        s/\s*$/ {\n/ if not /{/;    # ensure K&R Style
+        my @words = split(/\W+/);
+        $bundle  = $words[2] if ( $words[1] eq "agent" );
+        $reports = "";
+        $s       = $s_bundle;
+        next;
+    }
+    if ( $s == $s_bundle and /^\s*{\s*$/ ) {
+        $_ = "";                    # ensure K&R Style
+        $s = $s;
+        next;
+    }
+    if ( ( $s == $s_promise_type or $s == $s_bundle ) and /[^:]:\s*$/ ) {
+        s/^\s*//;
+        $promise_type = $_;
+        $promise_type =~ s/^\s*//;
+        $promise_type =~ s/:[^:]*$//;
+        $s = $s_promise_type;
+        next;
+    }
+    if ( ( $s == $s_promise_type or $s == $s_body ) and /::\s*$/ ) {
+        s/^\s*/  /;
+        $s = $s;
+        next;
+    }
+    if ( $s == $s_promise_type and /^\s*"/ ) {
+        s/^\s*/    /;
+        if (/;\s*$/) {
+            $s = $s_promise_type;
+        }
+        else {
+            $promise = $_;
+            $promise =~ s/^\s*"//;
+            $promise =~ s/"[^"]*$//;
+            $handle  = "";
+            $classes = "";
+            $comment = "";
+            $s       = $s_promise;
+        }
+        next;
+    }
+    if ( $s == $s_promise ) {
+        if (/=>/) {
+            s/^\s*/      /;
+            my @words = split(/\W+/);
+            if ( $words[1] eq "comment" ) {
+                $comment = $_;
+                $comment =~ s/^[^"]*"//;
+                $comment =~ s/"[^"]*$//;
+            }
+            if ( $words[1] eq "classes" ) {
+                $classes = $_;
+                $classes =~ s/^[^"]*"//;
+                $classes =~ s/"[^"]*$//;
+            }
+            if ( $words[1] eq "handle" ) {
+                $handle = $_;
+                $handle =~ s/^[^"]*"//;
+                $handle =~ s/"[^"]*$//;
+            }
+        }
+        else {
+            s/^\s*/        /;
+        }
+        if (/;\s*$/) {
+            if ( $needsHandle{$promise_type} and not "$handle" ) {
+                print STDERR
+                  "missing handle ${bundle}_${promise_type}_${promise}\n";
+                my $handle = "${bundle}_${promise_type}_${promise}";
+                $handle =~ s/\W/_/g;
+                s/;\s*$/,\n      handle => $handle;\n/;
+            }
+            if ( $needsClasses{$promise_type} and not "$classes" ) {
+                print STDERR
+                  "missing \"classes\" ${bundle}_${promise_type}_${promise}\n";
+            }
+            if ( $needsReport{$promise_type} and "$handle" and "$comment" ) {
+                print STDERR "missing report: $handle - $comment\n";
+                $reports .=
+"    \"\$(results): $comment\" ifvarclass => canonify(\"\$(results)_$handle\");\n";
+            }
+            $s = $s_promise_type;
+        }
+        else {
+            $s = $s_promise;
+        }
+        next;
+    }
+    if ( $s == $s_promise_type and /}\s*$/ ) {
+        s/^\s*/$reports/;
+        $s = $s_init;
+        next;
+    }
+    if ( $s == $s_init and /^\s*(body)/ ) {
+        s/^\s*//;
+        s/\s*$/ {\n/ if not /{/;    # ensure K&R Style
+        $s = $s_body;
+        next;
+    }
+    if ( $s == $s_body and /^\s*{\s*$/ ) {
+        $_ = "";                    # ensure K&R Style
+        $s = $s;
+        next;
+    }
+    if ( $s == $s_body ) {
+        if (/}\s*$/) {
+            s/^\s*//;
+            $s = $s_init;
+        }
+        else {
+            s/^\s*/    /;
+            $s = $s_body;
+        }
+        next;
+    }
+}
+
+# vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent

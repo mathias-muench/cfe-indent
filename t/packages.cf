@@ -1,0 +1,55 @@
+bundle agent packages {
+vars:
+  any::
+    "pack2" slist => {
+      "rcs",
+      "subversion",
+      "createrepo",
+      "google-chrome-beta",
+      "perl-CPAN",
+    };
+
+methods:
+  any::
+    "any" usebundle => services(@(packages.pack2), "", "");
+    "any" usebundle => services("rsyslog", "", "service rsyslog restart");
+    "any" usebundle => services("splunk", "", "/opt/splunk/bin/splunk restart --accept-license");
+
+}
+
+bundle agent repos {
+vars:
+    "results" slist => { @(results.detail) };
+
+files:
+  "/etc/yum.repos.d/local.repo"
+    comment      => "Add $(this.promiser) repo config",
+    create => "true",
+    perms => mog("644", "root", "root"),
+    edit_line    => el_repos,
+    classes => result_classes,
+    handle => "repos_files";
+
+commands:
+  REPAIRED_repos_files::
+	  "/usr/bin/yum clean all";
+  any::
+    "/usr/bin/yum upgrade -y | sed -n -e '/^  [^ ]/s/^  \([^.]*\).*/+REPAIRED_services_packages_\1/p'"
+      module => "true",
+      contain => in_shell,
+      handle => "packages_commands_yum_upgrade";
+
+reports:
+  agent::
+    "$(results): repos_files" ifvarclass => canonify("$(results)_repos_files");
+}
+
+bundle edit_line el_repos
+{
+insert_lines:
+"[local]
+name=local
+baseurl=file:///mnt/hgfs/YumRepo
+gpgcheck=0
+enabled=1";
+}
