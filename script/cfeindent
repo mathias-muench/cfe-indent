@@ -21,7 +21,8 @@ my $reports;
 my $s_init         = 1;
 my $s_bundle       = 2;
 my $s_promise_type = 3;
-my $s_promise      = 5;
+my $s_shortpromise = 4;
+my $s_longpromise  = 5;
 my $s_body         = 6;
 
 for ( my $s = $s_init ; <> ; print ) {
@@ -59,26 +60,46 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
     }
     if ( $s == $s_promise_type and /^\s*"/ ) {
         s/^\s*/    /;
-        if (/;\s*$/) {
-            $s = $s_promise_type;
+        if ( length > 80 ) {
+            s/=>[ \t]*/=>\n      /;
         }
         else {
+            s/=>[ \t]*/=> /;
+        }
+        if (/"\s*$/) {
             $promise = $_;
             $promise =~ s/^\s*"//;
             $promise =~ s/"[^"]*$//;
             $handle  = "";
             $classes = "";
             $comment = "";
-            $s       = $s_promise;
+            $s       = $s_longpromise;
+            next;
         }
-        next;
+        elsif (/;\s*$/) {
+            $s = $s_promise_type;
+            next;
+        }
+        else {
+            $s = $s_shortpromise;
+            next;
+        }
     }
-    if ( $s == $s_promise ) {
+    if ( $s == $s_shortpromise ) {
+        if (/;\s*$/) {
+            $s = $s_promise_type;
+            next;
+        }
+        else {
+            $s = $s_shortpromise;
+            next;
+        }
+    }
+    if ( $s == $s_longpromise ) {
         if (/=>/) {
-            s/^\s*/      /;
             unless (/[,;]\s$/) {
-              chomp;
-              $_ .= <>;
+                chomp;
+                $_ .= <>;
             }
             my @words = split(/\W+/);
             if ( $words[1] eq "comment" ) {
@@ -95,6 +116,13 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
                 $handle = $_;
                 $handle =~ s/^[^"]*"//;
                 $handle =~ s/"[^"]*$//;
+            }
+            s/^\s*/      /;
+            if ( length > 80 ) {
+                s/=>\s*/=>\n        /;
+            }
+            else {
+                s/=>\s*/=> /;
             }
         }
         else {
@@ -120,7 +148,7 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
             $s = $s_promise_type;
         }
         else {
-            $s = $s_promise;
+            $s = $s_longpromise;
         }
         next;
     }
