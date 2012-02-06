@@ -4,10 +4,7 @@ use warnings;
 
 our $VERSION = '0.01';
 
-use vars qw($H $R $C);
-my %needsHandle  = ( "files" => $H, "commands" => $H );
-my %needsReport  = ( "files" => $R, "commands" => $R );
-my %needsClasses = ( "files" => $C, "commands" => $C );
+use vars qw($H $R $C $L $E);
 
 my $bundle;
 my $promise_type;
@@ -129,21 +126,34 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
             s/^\s*/        /;
         }
         if (/;\s*$/) {
-            if ( $needsHandle{$promise_type} and not "$handle" ) {
+            if ( defined($C) and not "$comment" ) {
+                print STDERR
+                  "missing \"comment\" ${bundle}_${promise_type}_${promise}\n";
+                if ( defined($E) ) {
+                    $comment = qq($bundle $promise_type '$promise');
+                    s/;\s*$/,\n      comment => "$comment";\n/;
+                }
+            }
+            if ( defined($H) and not "$handle" ) {
                 print STDERR
                   "missing handle ${bundle}_${promise_type}_${promise}\n";
-                my $handle = "${bundle}_${promise_type}_${promise}";
-                $handle =~ s/\W/_/g;
-                s/;\s*$/,\n      handle => $handle;\n/;
+                if ( defined($E) ) {
+                    $handle = "${bundle}_${promise_type}_${promise}";
+                    $handle =~ s/\W/_/g;
+                    s/;\s*$/,\n      handle => "$handle";\n/;
+                }
             }
-            if ( $needsClasses{$promise_type} and not "$classes" ) {
+            if ( defined($L) and not "$classes" ) {
                 print STDERR
                   "missing \"classes\" ${bundle}_${promise_type}_${promise}\n";
+                if ( defined($E) and "$handle" ) {
+                    $classes = "$handle";
+s/;\s*$/,\n      classes => result_classes_name("$classes");\n/;
+                }
             }
-            if ( $needsReport{$promise_type} and "$handle" and "$comment" ) {
-                print STDERR "missing report: $handle - $comment\n";
+            if ( defined($R) and "$handle" and "$comment" ) {
                 $reports .=
-"    \"\$(results): $comment\" ifvarclass => canonify(\"\$(results)_$handle\");\n";
+qq(    "\$(results): $comment" ifvarclass => "\$(results)_$handle";\n);
             }
             $s = $s_promise_type;
         }

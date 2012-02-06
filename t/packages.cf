@@ -13,8 +13,7 @@ methods:
   any::
     "any" usebundle => services(@(packages.pack2), "", "");
     "any" usebundle => services("rsyslog", "", "service rsyslog restart");
-    "any" usebundle =>
-      services("splunk", "", "/opt/splunk/bin/splunk restart --accept-license");
+    "any" usebundle => services("splunk", "", "/opt/splunk/bin/splunk restart --accept-license");
 
 }
 
@@ -23,17 +22,20 @@ vars:
     "results" slist => { @(results.detail) };
 
 files:
-    "/etc/yum.repos.d/local.repo"
-      comment      => "Add $(this.promiser) repo config",
-      create => "true",
-      perms => mog("644", "root", "root"),
-      edit_line    => el_repos,
-      classes => result_classes,
-      handle => "repos_files";
+  "/etc/yum.repos.d/local.repo"
+    comment      => "Add $(this.promiser) repo config",
+    create => "true",
+    edit_line    => el_repos,
+    classes => result_classes,
+    handle => "repos_files";
+
+  "/etc/yum.repos.d/local.repo"
+    perms =>
+      mog("644", "root", "root");
 
 commands:
   REPAIRED_repos_files::
-    "/usr/bin/yum clean all";
+	  "/usr/bin/yum clean all";
   any::
     "/usr/bin/yum upgrade -y | sed -n -e '/^  [^ ]/s/^  \([^.]*\).*/+REPAIRED_services_packages_\1/p'"
       module => "true",
@@ -45,9 +47,10 @@ reports:
     "$(results): repos_files" ifvarclass => canonify("$(results)_repos_files");
 }
 
-bundle edit_line el_repos {
+bundle edit_line el_repos
+{
 insert_lines:
-    "[local]
+"[local]
 name=local
 baseurl=file:///mnt/hgfs/YumRepo
 gpgcheck=0
