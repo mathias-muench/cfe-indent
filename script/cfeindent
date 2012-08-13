@@ -4,10 +4,7 @@ use warnings;
 
 our $VERSION = '0.01';
 
-use vars qw($H $R $C);
-my %needsHandle  = ( "files" => $H, "commands" => $H );
-my %needsReport  = ( "files" => $R, "commands" => $R );
-my %needsClasses = ( "files" => $C, "commands" => $C );
+use vars qw($H $R $C $L $E);
 
 my $bundle;
 my $promise_type;
@@ -60,12 +57,7 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
     }
     if ( $s == $s_promise_type and /^\s*"/ ) {
         s/^\s*/    /;
-        if ( length > 80 ) {
-            s/=>[ \t]*/=>\n      /;
-        }
-        else {
-            s/=>[ \t]*/=> /;
-        }
+        $_ = formatLine( $_, "    " );
         if (/"\s*$/) {
             $promise = $_;
             $promise =~ s/^\s*"//;
@@ -118,32 +110,52 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
                 $handle =~ s/"[^"]*$//;
             }
             s/^\s*/      /;
-            if ( length > 80 ) {
-                s/=>\s*/=>\n        /;
-            }
-            else {
-                s/=>\s*/=> /;
-            }
+            $_ = formatLine( $_, "      " );
         }
         else {
             s/^\s*/        /;
         }
         if (/;\s*$/) {
-            if ( $needsHandle{$promise_type} and not "$handle" ) {
+            if ( defined($C) and not "$comment" ) {
+                $comment = qq($bundle $promise_type '$promise');
                 print STDERR
-                  "missing handle ${bundle}_${promise_type}_${promise}\n";
-                my $handle = "${bundle}_${promise_type}_${promise}";
-                $handle =~ s/\W/_/g;
-                s/;\s*$/,\n      handle => $handle;\n/;
+                  "missing \"comment\" $comment\n";
+                if ( defined($E) ) {
+                    my $line = formatLine( qq(      comment => "$comment";\n),
+                        "      " );
+                    s/;\s*$/,\n$line/;
+                }
             }
-            if ( $needsClasses{$promise_type} and not "$classes" ) {
+            if ( defined($H) and not "$handle" ) {
+                $handle = "${bundle}_${promise_type}_${promise}";
                 print STDERR
-                  "missing \"classes\" ${bundle}_${promise_type}_${promise}\n";
+                  "missing \"handle\" $handle\n";
+                if ( defined($E) ) {
+                    $handle =~ s/\W/_/g;
+                    my $line =
+                      formatLine( qq(      handle => "$handle";\n), "      " );
+                    s/;\s*$/,\n$line/;
+                }
             }
-            if ( $needsReport{$promise_type} and "$handle" and "$comment" ) {
-                print STDERR "missing report: $handle - $comment\n";
-                $reports .=
-"    \"\$(results): $comment\" ifvarclass => canonify(\"\$(results)_$handle\");\n";
+            if ( defined($L) and not "$classes" ) {
+                $classes = "$handle";
+                print STDERR
+                  "missing \"classes\" $classes\n";
+                if ( defined($E) and "$handle" ) {
+                    my $line = formatLine(
+                        qq(      classes => result_classes_name("$classes");\n),
+                        "      "
+                    );
+                    s/;\s*$/,\n$line/;
+                }
+            }
+            if ( defined($R) and "$handle" and "$comment" ) {
+                print STDERR "insert \"report\" ${handle}: ${comment}\n";
+                my $line = formatLine(
+qq(    "\$(results): $comment" ifvarclass => "\$(results)_$handle";\n),
+                    "    "
+                );
+                $reports .= $line;
             }
             $s = $s_promise_type;
         }
@@ -152,8 +164,13 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
         }
         next;
     }
-    if ( $s == $s_promise_type and /}\s*$/ ) {
-        s/^\s*/$reports/;
+    if (    defined($E)
+        and $s == $s_promise_type
+        and /}\s*$/
+        and $promise_type eq "reports"
+        and "$reports" ne "" )
+    {
+        s/^\s*/  agent::\n$reports/;
         $s = $s_init;
         next;
     }
@@ -179,6 +196,21 @@ s/vim:.*/vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
         }
         next;
     }
+}
+
+sub formatLine {
+    my $line   = shift;
+    my $einzug = shift;
+
+    $line =~ s/\h+=>/ =>/;
+    if ( length($line) > 80 ) {
+        $line =~ s/=>\h+/=>\n  $einzug/;
+    }
+    else {
+        $line =~ s/=>\h+/=> /;
+    }
+
+    return $line;
 }
 
 # vim: tabstop=2 shiftwidth=2 smarttab expandtab softtabstop=2 autoindent
