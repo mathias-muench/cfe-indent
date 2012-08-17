@@ -4,7 +4,9 @@ use warnings;
 
 our $VERSION = '0.01';
 
-use vars qw($H $R $C $L $E);
+use vars qw($h $H $R $C $L $E);
+
+defined($h) && die "$0 -h(elp) -H(andle) -C(omment) (c)-L(asses) -R(eport) -E(dit)";
 
 my $bundle;
 my $promise_type;
